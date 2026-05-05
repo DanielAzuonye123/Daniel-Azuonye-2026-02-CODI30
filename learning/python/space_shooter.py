@@ -1,79 +1,111 @@
 import pygame
 import random
 import sys
+import os
 
 pygame.init()
+pygame.mixer.init()
 
 WIDTH, HEIGHT = 600, 700
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Space Shooter Upgrade Game")
+pygame.display.set_caption("Space Shooter")
 
 WHITE = (255,255,255)
 RED = (255,0,0)
+GREEN = (0,255,0)
+PURPLE = (200,0,200)
+YELLOW = (255,255,0)
 
 clock = pygame.time.Clock()
 
+# ================= LOADERS =================
+def load_image(path, size=None):
+    if os.path.exists(path):
+        img = pygame.image.load(path).convert_alpha()
+        if size:
+            img = pygame.transform.scale(img, size)
+        return img
+    surf = pygame.Surface((40,40))
+    surf.fill((255,0,0))
+    return surf
+
+def load_sound(path):
+    if os.path.exists(path):
+        return pygame.mixer.Sound(path)
+    return None
+
 # ================= IMAGES =================
-player_img = pygame.image.load("learning/python/assets/player.png")
-enemy_img = pygame.image.load("learning/python/assets/enemy.png")
-bullet_img = pygame.image.load("learning/python/assets/bullet.png")
-background_img = pygame.image.load("learning/python/assets/background.png")
+player_img = load_image("learning/python/assets/player.png", (60,60))
+enemy_img = load_image("learning/python/assets/enemy.png", (50,50))
+bullet_img = load_image("learning/python/assets/bullet.png", (12,24))
+background_img = load_image("learning/python/assets/background.png", (WIDTH,HEIGHT))
 
 # ================= PLAYER =================
 player_x = WIDTH // 2
-player_y = HEIGHT - 80
+player_y = HEIGHT - 100
 player_speed = 6
-player_health = 3
+player_health = 5
+player_upgrade = 1
 
-# ================= GAME OBJECTS =================
+# ================= OBJECTS =================
 bullets = []
-enemy_bullets = []
 enemies = []
+powerups = []
+enemy_bullets = []
 
 bullet_speed = 10
-enemy_speed = 3
-enemy_bullet_speed = 5
+enemy_speed = 2
 
 score = 0
 level = 1
+level_timer = 0
+
 game_state = "menu"
 
-# ================= FUNCTIONS =================
+# ================= SPAWN =================
 def spawn_enemy():
-    x = random.randint(0, WIDTH-40)
-    enemies.append([x, -50])
+    x = random.randint(0, WIDTH-50)
+    enemies.append([x, -50, 2])  # x y hp
 
 for _ in range(5):
     spawn_enemy()
 
+# ================= SHOOT =================
 def shoot():
-    bullets.append([player_x+20, player_y])
+    # bullet from player center
+    bullets.append([player_x + 24, player_y])
 
-# ================= GAME LOOP =================
+# ================= LOOP =================
 running = True
 while running:
 
-    screen.blit(background_img, (0,0))
+    screen.blit(background_img,(0,0))
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
         if game_state == "menu":
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                game_state = "game"
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    game_state = "game"
 
-        if game_state == "game":
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                shoot()
+        elif game_state == "game":
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    shoot()
 
     keys = pygame.key.get_pressed()
 
     # ================= MENU =================
     if game_state == "menu":
-        font = pygame.font.SysFont(None, 60)
-        screen.blit(font.render("SPACE SHOOTER", True, WHITE), (120, 200))
-        screen.blit(pygame.font.SysFont(None, 40).render("Press ENTER", True, WHITE), (220, 300))
+
+        font = pygame.font.SysFont(None,60)
+        text = font.render("SPACE SHOOTER",True,WHITE)
+        screen.blit(text,(120,200))
+
+        font2 = pygame.font.SysFont(None,30)
+        screen.blit(font2.render("Press ENTER",True,WHITE),(220,300))
 
     # ================= GAME =================
     elif game_state == "game":
@@ -84,71 +116,93 @@ while running:
         if keys[pygame.K_RIGHT]:
             player_x += player_speed
 
-        # bullets move
+        # bullets
         for b in bullets:
             b[1] -= bullet_speed
 
-        # enemy movement
+        # enemies
         for e in enemies:
             e[1] += enemy_speed
 
-        # enemy shooting
-        if random.randint(1, 60) < 2:
-            if enemies:
-                e = random.choice(enemies)
-                enemy_bullets.append([e[0]+20, e[1]+40])
-
-        # enemy bullets move
-        for b in enemy_bullets:
-            b[1] += enemy_bullet_speed
-
-        # COLLISION PLAYER BULLETS
+        # bullet hit enemy
         for b in bullets[:]:
             for e in enemies[:]:
-                if abs(b[0]-e[0]) < 30 and abs(b[1]-e[1]) < 30:
+                if pygame.Rect(b[0],b[1],12,24).colliderect(
+                   pygame.Rect(e[0],e[1],50,50)):
+
                     bullets.remove(b)
-                    enemies.remove(e)
-                    spawn_enemy()
-                    score += 10
+                    e[2] -= 1
 
-        # COLLISION PLAYER HIT
-        for b in enemy_bullets[:]:
-            if abs(b[0]-player_x) < 30 and abs(b[1]-player_y) < 30:
-                enemy_bullets.remove(b)
-                player_health -= 1
-                if player_health <= 0:
-                    game_state = "gameover"
+                    if e[2] <= 0:
+                        enemies.remove(e)
+                        spawn_enemy()
+                        score += 10
 
-        # level system
-        if score >= level * 100:
-            level += 1
-            enemy_speed += 1
-
-        # DRAW PLAYER
-        screen.blit(player_img, (player_x, player_y))
-
-        # DRAW BULLETS
-        for b in bullets:
-            screen.blit(bullet_img, (b[0], b[1]))
-
-        # DRAW ENEMIES
+        # enemy hit player
         for e in enemies:
-            screen.blit(enemy_img, (e[0], e[1]))
+            if pygame.Rect(player_x,player_y,60,60).colliderect(
+               pygame.Rect(e[0],e[1],50,50)):
 
-        # DRAW ENEMY BULLETS
-        for b in enemy_bullets:
-            screen.blit(bullet_img, (b[0], b[1]))
+                player_health -= 1
+                e[1] = -50
+
+        # spawn powerups
+        if random.randint(1,400) == 1:
+            powerups.append([random.randint(0,WIDTH-20),-20])
+
+        # move powerups
+        for p in powerups:
+            p[1] += 3
+
+        # pickup
+        for p in powerups[:]:
+            if pygame.Rect(player_x,player_y,60,60).colliderect(
+               pygame.Rect(p[0],p[1],20,20)):
+                powerups.remove(p)
+                player_upgrade += 1
+
+        # level up
+        if score >= level * 50:
+            level += 1
+            enemy_speed += 0.5
+            level_timer = 120
+
+        # draw player
+        screen.blit(player_img,(player_x,player_y))
+
+        # draw bullets
+        for b in bullets:
+            screen.blit(bullet_img,(b[0],b[1]))
+
+        # draw enemies
+        for e in enemies:
+            screen.blit(enemy_img,(e[0],e[1]))
+
+        # draw powerups
+        for p in powerups:
+            pygame.draw.rect(screen,GREEN,(p[0],p[1],20,20))
 
         # UI
-        font = pygame.font.SysFont(None, 35)
-        screen.blit(font.render(f"Score: {score}", True, WHITE), (10,10))
-        screen.blit(font.render(f"Level: {level}", True, WHITE), (10,40))
-        screen.blit(font.render(f"HP: {player_health}", True, WHITE), (10,70))
+        font = pygame.font.SysFont(None,30)
+
+        screen.blit(font.render(f"Score: {score}",True,WHITE),(10,10))
+        screen.blit(font.render(f"Level: {level}",True,WHITE),(10,40))
+        screen.blit(font.render(f"HP: {player_health}",True,WHITE),(10,70))
+
+        # LEVEL TEXT
+        if level_timer > 0:
+            level_timer -= 1
+            big = pygame.font.SysFont(None,70)
+            screen.blit(big.render(f"LEVEL {level}",True,YELLOW),(180,300))
+
+        # game over
+        if player_health <= 0:
+            game_state = "gameover"
 
     # ================= GAME OVER =================
     elif game_state == "gameover":
-        font = pygame.font.SysFont(None, 80)
-        screen.blit(font.render("GAME OVER", True, RED), (120, 250))
+        font = pygame.font.SysFont(None,80)
+        screen.blit(font.render("GAME OVER",True,RED),(120,250))
 
     pygame.display.update()
     clock.tick(60)
