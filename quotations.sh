@@ -1,12 +1,20 @@
-# Why quotes matter:
-# Quotes control how Bash reads text.
-# They affect whether variables expand and how spaces are handled.
+#!/bin/bash
 
-# More examples:
+# quotations.sh
+# Prints a random quote
 
-echo "My name is $name"
-echo 'My name is $name'
+echo "Here is a quote for you:"
 
-# Difference:
-# Double quotes → variable works
-# Single quotes → printed literally
+quotes=(
+"With great power comes great responsibility."
+"Stay hungry, stay foolish."
+"Knowledge is power."
+"The only limit is your mind."
+"Success is not final, failure is not fatal."
+)
+
+# Get random index
+index=$((RANDOM % ${#quotes[@]}))
+
+# Print random quote
+echo "${quotes[$index]}"
