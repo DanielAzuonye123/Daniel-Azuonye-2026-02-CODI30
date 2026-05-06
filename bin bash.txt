@@ -1,0 +1,9 @@
+                                                                                                                                              
+#!bin/bash
+
+#Generate a number in your head
+
+
+
+
+Make a numberguessing game with out help beyond this doc: https://www.gnu.org/software/bash/manual/bash.html#Bash-Variables
